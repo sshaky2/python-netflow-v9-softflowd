@@ -15,7 +15,8 @@ import socketserver
 import time
 import json
 import os.path
-
+import ipaddress
+from kafka import KafkaProducer
 
 logging.getLogger().setLevel(logging.INFO)
 ch = logging.StreamHandler(sys.stdout)
@@ -40,6 +41,9 @@ parser.add_argument('--file', '-o', type=str, dest='output_file',
                     help='collector export JSON file')
 parser.add_argument('--debug', '-D', action='store_true',
                     help='Enable debug output')
+parser.add_argument('--kafka', '-K', dest='kafka_broker', default='localhost:9092',
+                    help='Kafka broker address')
+
 
 class SoftflowUDPHandler(socketserver.BaseRequestHandler):
     # We need to save the templates our NetFlow device
@@ -57,13 +61,17 @@ class SoftflowUDPHandler(socketserver.BaseRequestHandler):
     def set_output_file(cls, path):
         cls.output_file = path
 
-    def handle(self):
-        if not os.path.exists(self.output_file):
-            with open(self.output_file, 'w') as fh:
-                fh.write(json.dumps({}))
+    @classmethod
+    def set_kafka_producer(cls, prod):
+        cls.producer = prod
 
-        with open(self.output_file, 'r') as fh:
-            existing_data = json.loads(fh.read())
+    def handle(self):
+        #if not os.path.exists(self.output_file):
+        #    with open(self.output_file, 'w') as fh:
+        #        fh.write(json.dumps({}))
+
+        #with open(self.output_file, 'r') as fh:
+        #    existing_data = json.loads(fh.read())
 
         data = self.request[0]
         host = self.client_address[0]
@@ -75,18 +83,39 @@ class SoftflowUDPHandler(socketserver.BaseRequestHandler):
         logging.debug(s)
 
         # Append new flows
-        existing_data[time.time()] = [flow.data for flow in export.flows]
-
-        with open(self.output_file, 'w') as fh:
-            fh.write(json.dumps(existing_data))
-
+        #existing_data[time.time()] = [flow.data for flow in export.flows]
+        producer = KafkaProducer(value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+        for flow in export.flows:
+            print(flow.data)
+            producer.send('sss.netflow', flow.data)
+        producer.flush()
+        # with open(self.output_file, 'w') as fh:
+        #     fh.write(json.dumps(existing_data))
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
     SoftflowUDPHandler.set_output_file(args.output_file)
     server = SoftflowUDPHandler.get_server(args.host, args.port)
+    producer = KafkaProducer(bootstrap_servers=args.kafka_broker)
+    SoftflowUDPHandler.set_kafka_producer(producer)
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
+    try:
+        logging.debug("Starting the NetFlow listener")
+        server.serve_forever(poll_interval=0.5)
+    except (IOError, SystemExit):
+        raise
+    except KeyboardInterrupt:
+        raise
+
+def CollectNetflow():
+    args = parser.parse_args()
+    SoftflowUDPHandler.set_output_file(args.output_file)
+    server = SoftflowUDPHandler.get_server(args.host, args.port)
+    producer = KafkaProducer(bootstrap_servers=args.kafka_broker)
+    SoftflowUDPHandler.set_kafka_producer(producer)
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
