@@ -41,7 +41,7 @@ parser.add_argument('--file', '-o', type=str, dest='output_file',
                     help='collector export JSON file')
 parser.add_argument('--debug', '-D', action='store_true',
                     help='Enable debug output')
-parser.add_argument('--kafka', '-K', dest='kafka_broker', default='localhost:9092',
+parser.add_argument('--kafka', '-K', dest='kafka_broker', default='K1D-KAFKA-CLST.ksg.int:9092',
                     help='Kafka broker address')
 
 
@@ -84,7 +84,8 @@ class SoftflowUDPHandler(socketserver.BaseRequestHandler):
 
         # Append new flows
         #existing_data[time.time()] = [flow.data for flow in export.flows]
-        producer = KafkaProducer(value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+        #producer = KafkaProducer(bootstrap_servers=args.kafka_broker, value_serializer=lambda v: json.dumps(v).encode('utf-8'))
+
         for flow in export.flows:
             print(flow.data)
             producer.send('sss.netflow', flow.data)
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     SoftflowUDPHandler.set_output_file(args.output_file)
     server = SoftflowUDPHandler.get_server(args.host, args.port)
-    producer = KafkaProducer(bootstrap_servers=args.kafka_broker)
+    producer = KafkaProducer(bootstrap_servers=args.kafka_broker, value_serializer=lambda v: json.dumps(v).encode('utf-8'))
     SoftflowUDPHandler.set_kafka_producer(producer)
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
