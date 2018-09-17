@@ -4,10 +4,10 @@ import sys
 import win32event
 import win32service
 import win32serviceutil
-import main
+import Collector
 
 
-class TestService(win32serviceutil.ServiceFramework):
+class NetFlowService(win32serviceutil.ServiceFramework):
     _svc_name_ = "NetFlowService"
     _svc_display_name_ = "NetFlow Service"
 
@@ -28,16 +28,13 @@ class TestService(win32serviceutil.ServiceFramework):
                               servicemanager.PYS_SERVICE_STARTED,
                               (self._svc_name_, ''))
         while self.isAlive:
-            main.CollectNetflow()
-            #with open('C:\\TestService.log', 'a') as f:
-            #    f.write('test service running...\n')
-            #rc = win32event.WaitForSingleObject(self.hWaitStop)
+            Collector.CollectNetflow()
         win32event.WaitForSingleObject(self.hWaitStop, win32event.INFINITE)
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         servicemanager.Initialize()
-        servicemanager.PrepareToHostSingle(TestService)
+        servicemanager.PrepareToHostSingle(NetFlowService)
         servicemanager.StartServiceCtrlDispatcher()
     else:
-        win32serviceutil.HandleCommandLine(TestService)
+        win32serviceutil.HandleCommandLine(NetFlowService)

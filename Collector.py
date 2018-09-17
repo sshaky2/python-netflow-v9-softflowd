@@ -45,8 +45,6 @@ parser.add_argument('--kafka', '-K', dest='kafka_broker', default='K1D-KAFKA-CLS
                     help='Kafka broker address')
 
 
-
-
 class SoftflowUDPHandler(socketserver.BaseRequestHandler):
     # We need to save the templates our NetFlow device
     # send over time. Templates are not resended every
@@ -60,21 +58,10 @@ class SoftflowUDPHandler(socketserver.BaseRequestHandler):
         return server
 
     @classmethod
-    def set_output_file(cls, path):
-        cls.output_file = path
-
-    @classmethod
     def set_kafka_producer(cls, prod):
         cls.producer = prod
 
     def handle(self):
-        #if not os.path.exists(self.output_file):
-        #    with open(self.output_file, 'w') as fh:
-        #        fh.write(json.dumps({}))
-
-        #with open(self.output_file, 'r') as fh:
-        #    existing_data = json.loads(fh.read())
-
         data = self.request[0]
         host = self.client_address[0]
         s = "Received data from {}, length {}".format(host, len(data))
@@ -84,20 +71,13 @@ class SoftflowUDPHandler(socketserver.BaseRequestHandler):
         s = "Processed ExportPacket with {} flows.".format(export.header.count)
         logging.debug(s)
 
-        # Append new flows
-        #existing_data[time.time()] = [flow.data for flow in export.flows]
-        #producer = KafkaProducer(bootstrap_servers=args.kafka_broker, value_serializer=lambda v: json.dumps(v).encode('utf-8'))
-
         for flow in export.flows:
             print(flow.data)
             self.producer.send('sss.netflow', flow.data)
         self.producer.flush()
-        # with open(self.output_file, 'w') as fh:
-        #     fh.write(json.dumps(existing_data))
 
 def CollectNetflow():
     args = parser.parse_args()
-    SoftflowUDPHandler.set_output_file(args.output_file)
     server = SoftflowUDPHandler.get_server(args.host, args.port)
     producer = KafkaProducer(bootstrap_servers=args.kafka_broker,
                              value_serializer=lambda v: json.dumps(v).encode('utf-8'))
