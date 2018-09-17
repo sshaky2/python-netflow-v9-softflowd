@@ -45,6 +45,8 @@ parser.add_argument('--kafka', '-K', dest='kafka_broker', default='K1D-KAFKA-CLS
                     help='Kafka broker address')
 
 
+
+
 class SoftflowUDPHandler(socketserver.BaseRequestHandler):
     # We need to save the templates our NetFlow device
     # send over time. Templates are not resended every
@@ -88,34 +90,17 @@ class SoftflowUDPHandler(socketserver.BaseRequestHandler):
 
         for flow in export.flows:
             print(flow.data)
-            producer.send('sss.netflow', flow.data)
-        producer.flush()
+            self.producer.send('sss.netflow', flow.data)
+        self.producer.flush()
         # with open(self.output_file, 'w') as fh:
         #     fh.write(json.dumps(existing_data))
-
-
-if __name__ == "__main__":
-    args = parser.parse_args()
-    SoftflowUDPHandler.set_output_file(args.output_file)
-    server = SoftflowUDPHandler.get_server(args.host, args.port)
-    producer = KafkaProducer(bootstrap_servers=args.kafka_broker, value_serializer=lambda v: json.dumps(v).encode('utf-8'))
-    SoftflowUDPHandler.set_kafka_producer(producer)
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    try:
-        logging.debug("Starting the NetFlow listener")
-        server.serve_forever(poll_interval=0.5)
-    except (IOError, SystemExit):
-        raise
-    except KeyboardInterrupt:
-        raise
 
 def CollectNetflow():
     args = parser.parse_args()
     SoftflowUDPHandler.set_output_file(args.output_file)
     server = SoftflowUDPHandler.get_server(args.host, args.port)
-    producer = KafkaProducer(bootstrap_servers=args.kafka_broker)
+    producer = KafkaProducer(bootstrap_servers=args.kafka_broker,
+                             value_serializer=lambda v: json.dumps(v).encode('utf-8'))
     SoftflowUDPHandler.set_kafka_producer(producer)
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -127,3 +112,6 @@ def CollectNetflow():
         raise
     except KeyboardInterrupt:
         raise
+
+if __name__ == "__main__":
+    CollectNetflow()
