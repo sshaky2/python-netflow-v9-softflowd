@@ -91,7 +91,7 @@ def CollectNetflow():
     except (IOError, SystemExit):
         raise
     except KeyboardInterrupt:
-        raise
+        server.shutdown()
 
 if __name__ == "__main__":
     CollectNetflow()
